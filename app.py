@@ -46,14 +46,17 @@ def get_model(model_type):
         logging.info(f"Loading {model_type} model...")
         try:
             if model_type == 'depth_midas':
+                # Verify if Midas is in Annotators or ControlNet repo if issues arise
                 models_cache[model_type] = MidasDetector.from_pretrained("lllyasviel/ControlNet")
             elif model_type == 'lineart':
-                models_cache[model_type] = LineartDetector.from_pretrained("lllyasviel/ControlNet")
+                 # Lineart uses Annotators repo
+                models_cache[model_type] = LineartDetector.from_pretrained("lllyasviel/Annotators") # Corrected repo
             elif model_type == 'openpose':
-                models_cache[model_type] = OpenposeDetector.from_pretrained("lllyasviel/ControlNet")
+                 # Openpose uses Annotators repo
+                models_cache[model_type] = OpenposeDetector.from_pretrained("lllyasviel/Annotators") # Corrected repo
             elif model_type == 'scribble':
-                # Use HEDdetector for scribble
-                models_cache[model_type] = HEDdetector.from_pretrained("lllyasviel/ControlNet")
+                # Use HEDdetector for scribble, from Annotators repo
+                models_cache[model_type] = HEDdetector.from_pretrained("lllyasviel/Annotators") # Corrected repo
             else:
                  logging.warning(f"Attempted to load unknown model type: {model_type}")
                  return None # Unknown model
@@ -68,8 +71,9 @@ def get_model(model_type):
 
     elif model_type not in models_loaded and model_type != 'canny':
         # Log if model exists but wasn't logged as loaded in this session (e.g. after cold start)
-        logging.info(f"Using pre-loaded {model_type} model.")
-        models_loaded.add(model_type)
+        if models_cache.get(model_type) is not None: # Check model actually exists in cache
+             logging.info(f"Using pre-loaded {model_type} model.")
+             models_loaded.add(model_type)
 
     return models_cache.get(model_type)
 
@@ -97,7 +101,9 @@ def process_image(image_data, preprocessor_type, resolution=512):
 
         # Get the appropriate model/method
         model_or_method = get_model(preprocessor_type)
+        # Check if model loading failed or returned None
         if model_or_method is None:
+             # This error message will be caught by the outer try/except
              raise RuntimeError(f"Model/method for {preprocessor_type} failed to load or is unavailable.")
 
         # Process based on type
@@ -134,7 +140,8 @@ def process_image(image_data, preprocessor_type, resolution=512):
 
         return f'data:image/png;base64,{img_str}'
     except Exception as e:
-        logging.error(f"Error processing image with {preprocessor_type}: {str(e)}", exc_info=True)
+        # Log the error occurred during processing stage
+        logging.error(f"Error during image processing stage with {preprocessor_type}: {str(e)}", exc_info=True)
         raise e # Re-raise to be caught by the route handler
 
 # --- Flask App Setup ---
@@ -180,25 +187,29 @@ def process_request():
             image_results = {}
             for preprocessor_type in preprocessor_types:
                 try:
+                    # Call the processing function which includes model loading check
                     result = process_image(image_data, preprocessor_type, resolution)
                     image_results[preprocessor_type] = result
                 except Exception as e:
+                    # Catch errors from process_image (including model loading failures)
                     logging.error(f"Failed to process {image_key} with {preprocessor_type}: {str(e)}")
+                    # Report the specific error back to the frontend
                     image_results[preprocessor_type] = {
-                        'error': f"Failed processing {preprocessor_type}: {str(e)}" # Send error details back
+                        'error': f"Failed processing {preprocessor_type}: {str(e)}"
                     }
             results[image_key] = image_results
             logging.info(f"--- Finished processing {image_key} ---")
 
         end_time = time.time()
-        logging.info(f"Processing finished successfully in {end_time - start_time:.2f} seconds.")
+        logging.info(f"Processing finished successfully (all images attempted) in {end_time - start_time:.2f} seconds.")
         return jsonify({
-            'status': 'success',
+            'status': 'success', # Indicate overall request success, check individual results for errors
             'results': results
         })
     except Exception as e:
+        # Catch unexpected errors in the main route logic
         end_time = time.time()
-        logging.error(f"Error in /api/process endpoint after {end_time - start_time:.2f} seconds: {str(e)}", exc_info=True)
+        logging.error(f"Critical error in /api/process endpoint after {end_time - start_time:.2f} seconds: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': f"Internal server error: {str(e)}"
@@ -213,6 +224,6 @@ if __name__ == '__main__':
     # Use waitress or Flask's dev server for local testing.
     # For production on Render, Gunicorn is recommended.
     port = int(os.environ.get('PORT', 5000)) # Render sets the PORT env var
-    logging.info(f"Starting Flask server on port {port}...")
-    # Set debug=False for production/testing on Render
+    logging.info(f"Starting Flask server on port {port} for local development...")
+    # Set debug=True for local testing if desired, False for production simulation
     app.run(host='0.0.0.0', port=port, debug=False)
