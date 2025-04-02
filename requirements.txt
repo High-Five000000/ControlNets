@@ -9,6 +9,7 @@ requests # Often needed by huggingface libs implicitly
 torch # controlnet_aux depends on torch
 torchvision # controlnet_aux depends on torchvision
 torchaudio # controlnet_aux depends on torchaudio
+matplotlib>=3.0.0,<4.0.0
 # Add any other specific dependencies required by controlnet_aux or its models
 # transformers>=4.0.0,<5.0.0 # Example if needed
 # timm>=0.4.12 # Example if needed
