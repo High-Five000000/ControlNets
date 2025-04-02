@@ -1,0 +1,14 @@
+Flask>=2.0.0,<3.0.0
+Flask-Cors>=3.0.0,<4.0.0
+controlnet_aux==0.0.6
+opencv-python-headless # Use headless for servers
+Pillow>=9.0.0,<11.0.0
+numpy>=1.21.0,<2.0.0
+gunicorn>=20.0.0,<22.0.0 # For running the app on Render
+requests # Often needed by huggingface libs implicitly
+torch # controlnet_aux depends on torch
+torchvision # controlnet_aux depends on torchvision
+torchaudio # controlnet_aux depends on torchaudio
+# Add any other specific dependencies required by controlnet_aux or its models
+# transformers>=4.0.0,<5.0.0 # Example if needed
+# timm>=0.4.12 # Example if needed
